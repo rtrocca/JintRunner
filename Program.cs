@@ -24,9 +24,9 @@ namespace JintRunner
             if (args.Length == 0)
             {
                 Console.WriteLine("Usage:");
-                Console.WriteLine("  JintRunner run <script.js>   - Execute script and quit");
-                Console.WriteLine("  JintRunner chat <script.js>  - Execute script and start chat");
-                Console.WriteLine("  JintRunner cli [script.js]   - Execute script (optional) and start REPL");
+                Console.WriteLine("  jr run <script.js>   - Execute script and quit");
+                Console.WriteLine("  jr chat <script.js>  - Execute script and start chat");
+                Console.WriteLine("  jr cli [script.js]   - Execute script (optional) and start REPL");
                 return 1;
             }
 
