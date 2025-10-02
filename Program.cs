@@ -5,32 +5,149 @@ using System.Collections.Generic;
 
 namespace JintRunner
 {
+    enum RunMode
+    {
+        Run,    // Execute script and quit
+        Chat,   // Execute script and start chat loop
+        Cli     // Execute script and start REPL
+    }
+
     class Program
     {
         private static Engine? _jsEngine;
         private static Dictionary<string, JsValue> _eventHandlers = new();
+        private static RunMode _currentMode = RunMode.Chat;
+        private static bool _shouldQuit = false;
 
-        static void Main(string[] args)
+        static int Main(string[] args)
         {
-            if (args.Length != 1)
+            if (args.Length == 0)
             {
-                Console.WriteLine("Usage: JintRunner <script.js>");
-                Environment.Exit(1);
+                Console.WriteLine("Usage:");
+                Console.WriteLine("  JintRunner run <script.js>   - Execute script and quit");
+                Console.WriteLine("  JintRunner chat <script.js>  - Execute script and start chat");
+                Console.WriteLine("  JintRunner cli [script.js]   - Execute script (optional) and start REPL");
+                return 1;
             }
 
-            string scriptPath = args[0];
-            
-            if (!File.Exists(scriptPath))
+            string command = args[0].ToLower();
+            string? scriptPath = null;
+
+            // Parse the command and script path
+            switch (command)
+            {
+                case "run":
+                case "chat":
+                    if (args.Length != 2)
+                    {
+                        Console.WriteLine($"Error: '{command}' command requires a script file.");
+                        Console.WriteLine($"Usage: JintRunner {command} <script.js>");
+                        return 1;
+                    }
+                    scriptPath = args[1];
+                    break;
+                case "cli":
+                    if (args.Length > 2)
+                    {
+                        Console.WriteLine("Error: 'cli' command accepts at most one script file.");
+                        Console.WriteLine("Usage: JintRunner cli [script.js]");
+                        return 1;
+                    }
+                    if (args.Length == 2)
+                    {
+                        scriptPath = args[1];
+                    }
+                    // scriptPath can be null for cli mode
+                    break;
+                default:
+                    Console.WriteLine($"Error: Unknown command '{command}'");
+                    Console.WriteLine("Valid commands are: run, chat, cli");
+                    return 1;
+            }
+
+            // Set the current mode
+            switch (command)
+            {
+                case "run":
+                    _currentMode = RunMode.Run;
+                    break;
+                case "chat":
+                    _currentMode = RunMode.Chat;
+                    break;
+                case "cli":
+                    _currentMode = RunMode.Cli;
+                    break;
+            }
+
+            // Validate script file if provided
+            if (scriptPath != null && !File.Exists(scriptPath))
             {
                 Console.WriteLine($"Error: Script file '{scriptPath}' not found.");
-                Environment.Exit(1);
+                return 1;
             }
 
             try
             {
+                ExecuteMode(_currentMode, scriptPath);
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+                return 1;
+            }
+        }
+
+        private static void ExecuteMode(RunMode mode, string? scriptPath)
+        {
+            _currentMode = mode;
+
+            try
+            {
                 InitializeJsEngine();
-                LoadAndExecuteScript(scriptPath);
-                StartChatLoop();
+                
+                // Load and execute script if provided
+                if (scriptPath != null)
+                {
+                    if (!File.Exists(scriptPath))
+                    {
+                        Console.WriteLine($"Error: Script file '{scriptPath}' not found.");
+                        Environment.Exit(1);
+                    }
+                    LoadAndExecuteScript(scriptPath);
+                }
+                
+                // Handle different modes
+                switch (_currentMode)
+                {
+                    case RunMode.Run:
+                        if (scriptPath == null)
+                        {
+                            Console.WriteLine("Error: Script file is required for run mode.");
+                            Environment.Exit(1);
+                        }
+                        // Script executed, now quit
+                        break;
+                    case RunMode.Chat:
+                        if (scriptPath == null)
+                        {
+                            Console.WriteLine("Error: Script file is required for chat mode.");
+                            Environment.Exit(1);
+                        }
+                        StartChatLoop();
+                        break;
+                    case RunMode.Cli:
+                        if (scriptPath != null)
+                        {
+                            Console.WriteLine($"Script '{scriptPath}' executed. Starting JavaScript REPL...");
+                        }
+                        else
+                        {
+                            Console.WriteLine("Starting JavaScript REPL...");
+                        }
+                        StartCliLoop();
+                        break;
+                }
             }
             catch (Exception ex)
             {
@@ -62,7 +179,38 @@ namespace JintRunner
             // Add the write function
             _jsEngine.SetValue("write", new Action<string>((message) =>
             {
-                WriteAssistantMessage(message);
+                WriteMessage(message);
+            }));
+
+            // Add the quit function
+            _jsEngine.SetValue("quit", new Action(() =>
+            {
+                _shouldQuit = true;
+            }));
+
+            // Add a simple script loading function
+            _jsEngine.SetValue("loadScript", new Action<string>((relativePath) =>
+            {
+                try
+                {
+                    // Get the directory of the currently executing script
+                    string currentDir = Path.GetDirectoryName(Environment.CurrentDirectory) ?? Environment.CurrentDirectory;
+                    string fullPath = Path.Combine(Environment.CurrentDirectory, "scripts", relativePath);
+                    
+                    if (!File.Exists(fullPath))
+                    {
+                        throw new FileNotFoundException($"Script file not found: {fullPath}");
+                    }
+                    
+                    string scriptContent = File.ReadAllText(fullPath);
+                    _jsEngine!.Execute(scriptContent);
+                }
+                catch (Exception ex)
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"Error loading script '{relativePath}': {ex.Message}");
+                    Console.ResetColor();
+                }
             }));
         }
 
@@ -74,7 +222,7 @@ namespace JintRunner
 
         private static void StartChatLoop()
         {
-            while (true)
+            while (!_shouldQuit)
             {
                 // Display user prompt
                 Console.ForegroundColor = ConsoleColor.Cyan;
@@ -94,6 +242,63 @@ namespace JintRunner
                 Console.ResetColor();
                 // Trigger the message event
                 TriggerMessageEvent(userInput);
+            }
+        }
+
+        private static void StartCliLoop()
+        {
+            Console.WriteLine("JavaScript REPL started. Type expressions to evaluate, or 'exit'/'quit' to leave.");
+            
+            while (!_shouldQuit)
+            {
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.Write("js> ");
+                Console.ResetColor();
+
+                string? userInput = Console.ReadLine();
+                
+                if (string.IsNullOrEmpty(userInput))
+                    continue;
+
+                // Check for exit commands
+                if (userInput.ToLower() == "exit" || userInput.ToLower() == "quit")
+                    break;
+
+                try
+                {
+                    // Execute the user input and get the result
+                    var result = _jsEngine!.Evaluate(userInput);
+                    
+                    // Print the result (unless it's undefined)
+                    if (!result.IsUndefined())
+                    {
+                        Console.ForegroundColor = ConsoleColor.Yellow;
+                        Console.WriteLine($"=> {result}");
+                        Console.ResetColor();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"Error: {ex.Message}");
+                    Console.ResetColor();
+                }
+            }
+        }
+
+        private static void WriteMessage(string message)
+        {
+            if (_currentMode == RunMode.Chat)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.Write("Assistant> ");
+                Console.WriteLine(message);
+                Console.ResetColor();
+            }
+            else
+            {
+                // In run and cli modes, just print the message without prefix
+                Console.WriteLine(message);
             }
         }
 

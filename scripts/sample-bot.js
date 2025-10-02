@@ -40,6 +40,7 @@ register("message", function(eventData) {
         }
         else if (userText === "exit" || userText === "quit") {
             write("Goodbye! Thanks for chatting with me!");
+            quit();
         }
         else {
             write("I didn't understand that. Type 'help' to see available commands.");
