@@ -1,0 +1,37 @@
+{
+    // C# Configuration
+    "dotnet.defaultSolution": "JintRunner.sln",
+    "omnisharp.enableRoslynAnalyzers": true,
+    "omnisharp.enableEditorConfigSupport": true,
+    "omnisharp.enableImportCompletion": true,
+    // Editor Configuration
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.fixAll": "explicit",
+        "source.organizeImports": "explicit"
+    },
+    // C# Formatting
+    "csharp.format.enable": true,
+    "csharp.semanticHighlighting.enabled": true,
+    // Files to exclude from explorer
+    "files.exclude": {
+        "**/bin": true,
+        "**/obj": true,
+        "**/.vs": true
+    },
+    // Search exclusions
+    "search.exclude": {
+        "**/bin": true,
+        "**/obj": true,
+        "**/.vs": true,
+        "**/build": true
+    },
+    // File associations
+    "files.associations": {
+        "*.js": "javascript"
+    },
+    // Terminal configuration
+    "terminal.integrated.defaultProfile.linux": "bash",
+    // JavaScript configuration for script files
+    "javascript.preferences.includePackageJsonAutoImports": "off"
+}

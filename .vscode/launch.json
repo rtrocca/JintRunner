@@ -5,37 +5,72 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "JintRunner - Sample Bot",
+            "name": "JintRunner - CLI Mode",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceFolder}/bin/Debug/net8.0/JintRunner.dll",
-            "args": ["sample-bot.js"],
+            "program": "${workspaceFolder}/bin/Debug/net8.0/jr.dll",
+            "args": ["cli"],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "stopAtEntry": false
         },
         {
-            "name": "JintRunner - Simple Test",
+            "name": "JintRunner - Run Simple Test",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceFolder}/bin/Debug/net8.0/JintRunner.dll",
-            "args": ["simple-test.js"],
+            "program": "${workspaceFolder}/bin/Debug/net8.0/jr.dll",
+            "args": ["run", "scripts/simple-test.js"],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "stopAtEntry": false
         },
         {
-            "name": "JintRunner - No Handler Bot",
+            "name": "JintRunner - Chat Mode",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceFolder}/bin/Debug/net8.0/JintRunner.dll",
-            "args": ["no-handler-bot.js"],
+            "program": "${workspaceFolder}/bin/Debug/net8.0/jr.dll",
+            "args": ["chat"],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "stopAtEntry": false
+        },
+        {
+            "name": "JintRunner - Run Sample Bot",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/bin/Debug/net8.0/jr.dll",
+            "args": ["run", "scripts/sample-bot.js"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false
+        },
+        {
+            "name": "JintRunner - Custom Script",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/bin/Debug/net8.0/jr.dll",
+            "args": ["run", "${input:scriptPath}"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false
+        },
+        {
+            "name": "Attach to Process",
+            "type": "coreclr",
+            "request": "attach"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "scriptPath",
+            "description": "Path to JavaScript file (relative to workspace)",
+            "default": "scripts/simple-test.js",
+            "type": "promptString"
         }
     ]
 }

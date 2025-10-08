@@ -2,6 +2,7 @@
 using Jint.Native;
 using Jint.Native.Function;
 using System.Collections.Generic;
+using Jint.Native.Json;
 
 namespace JintRunner
 {
@@ -105,7 +106,7 @@ namespace JintRunner
             try
             {
                 InitializeJsEngine();
-                
+
                 // Load and execute script if provided
                 if (scriptPath != null)
                 {
@@ -116,7 +117,7 @@ namespace JintRunner
                     }
                     LoadAndExecuteScript(scriptPath);
                 }
-                
+
                 // Handle different modes
                 switch (_currentMode)
                 {
@@ -159,7 +160,7 @@ namespace JintRunner
         private static void InitializeJsEngine()
         {
             _jsEngine = new Engine();
-            
+
             // Add the register function
             _jsEngine.SetValue("register", new Action<string, JsValue>((eventName, handler) =>
             {
@@ -196,12 +197,12 @@ namespace JintRunner
                     // Get the directory of the currently executing script
                     string currentDir = Path.GetDirectoryName(Environment.CurrentDirectory) ?? Environment.CurrentDirectory;
                     string fullPath = Path.Combine(Environment.CurrentDirectory, "scripts", relativePath);
-                    
+
                     if (!File.Exists(fullPath))
                     {
                         throw new FileNotFoundException($"Script file not found: {fullPath}");
                     }
-                    
+
                     string scriptContent = File.ReadAllText(fullPath);
                     _jsEngine!.Execute(scriptContent);
                 }
@@ -227,11 +228,11 @@ namespace JintRunner
                 // Display user prompt
                 Console.ForegroundColor = ConsoleColor.Cyan;
                 Console.Write("User> ");
-                
+
 
                 // Read user input
                 string? userInput = Console.ReadLine();
-                
+
                 if (string.IsNullOrEmpty(userInput))
                     continue;
 
@@ -248,7 +249,9 @@ namespace JintRunner
         private static void StartCliLoop()
         {
             Console.WriteLine("JavaScript REPL started. Type expressions to evaluate, or 'exit'/'quit' to leave.");
-            
+
+            var serializer = new JsonSerializer(_jsEngine);
+
             while (!_shouldQuit)
             {
                 Console.ForegroundColor = ConsoleColor.Cyan;
@@ -256,7 +259,7 @@ namespace JintRunner
                 Console.ResetColor();
 
                 string? userInput = Console.ReadLine();
-                
+
                 if (string.IsNullOrEmpty(userInput))
                     continue;
 
@@ -268,14 +271,41 @@ namespace JintRunner
                 {
                     // Execute the user input and get the result
                     var result = _jsEngine!.Evaluate(userInput);
-                    
+
+                    Console.ForegroundColor = ConsoleColor.Yellow;
                     // Print the result (unless it's undefined)
-                    if (!result.IsUndefined())
+                    if (result.IsUndefined())
                     {
-                        Console.ForegroundColor = ConsoleColor.Yellow;
-                        Console.WriteLine($"=> {result}");
-                        Console.ResetColor();
+                        Console.WriteLine("=> undefined");
                     }
+                    else if (result.IsNull())
+                    {
+                        Console.WriteLine("=> null");
+                    }
+                    else if (result.IsObject())
+                    {
+                        // Special handling for objects to print JSON representation
+                        var obj = result.AsObject();
+
+                        var json = serializer.Serialize(obj);
+                        Console.WriteLine($"=> {json}");
+                    }
+                    else if (result.IsArray())
+                    {
+                        // Special handling for arrays to print contents
+                        var array = result.AsArray();
+                        var items = new List<string>();
+                        foreach (var item in array)
+                        {
+                            items.Add(item.ToString() ?? "undefined");
+                        }
+                        Console.WriteLine($"=> [{string.Join(", ", items)}]");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"=> {result}");
+                    }
+                    Console.ResetColor();
                 }
                 catch (Exception ex)
                 {
@@ -318,19 +348,21 @@ namespace JintRunner
                 if (_eventHandlers.ContainsKey("message"))
                 {
                     var handler = _eventHandlers["message"];
-                    
+
                     // Verify the handler is a function and invoke it properly
                     if (handler.IsObject() && handler.AsObject() is Function func)
                     {
                         // Create the event object using JsValue.FromObject
-                        var eventData = new {
+                        var eventData = new
+                        {
                             name = "message",
-                            data = new {
+                            data = new
+                            {
                                 text = text
                             }
                         };
                         var eventObject = JsValue.FromObject(_jsEngine!, eventData);
-                        
+
                         // Call the function with the event object as parameter
                         func.Call(JsValue.Undefined, new JsValue[] { eventObject });
                     }
