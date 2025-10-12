@@ -3,7 +3,6 @@
     "dotnet.defaultSolution": "JintRunner.sln",
     "omnisharp.enableRoslynAnalyzers": true,
     "omnisharp.enableEditorConfigSupport": true,
-    "omnisharp.enableImportCompletion": true,
     // Editor Configuration
     "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
@@ -33,5 +32,6 @@
     // Terminal configuration
     "terminal.integrated.defaultProfile.linux": "bash",
     // JavaScript configuration for script files
-    "javascript.preferences.includePackageJsonAutoImports": "off"
+    "javascript.preferences.includePackageJsonAutoImports": "off",
+    "dotnet.completion.showCompletionItemsFromUnimportedNamespaces": true
 }
