@@ -6,6 +6,7 @@ using Jint.Runtime;
 using JintRunner.Core;
 using JintRunner.Models;
 using System.Collections;
+using Fluid;
 
 namespace JintRunner.Runners
 {
@@ -150,6 +151,39 @@ namespace JintRunner.Runners
             };
 
             _jsEngine.SetValue("process", processObject);
+
+            // Add render_template function for template rendering with Fluid
+            _jsEngine.SetValue("render_template", new Func<JsValue, JsValue, string>((templateArg, dataArg) =>
+            {
+                try
+                {
+                    // Type check: first argument must be a string
+                    if (!templateArg.IsString())
+                    {
+                        throw new ArgumentException("render_template: First argument must be a string (template)");
+                    }
+
+                    // Type check: second argument must be an object
+                    if (!dataArg.IsObject() || dataArg.IsNull() || dataArg.IsUndefined())
+                    {
+                        throw new ArgumentException("render_template: Second argument must be an object (data)");
+                    }
+
+                    var templateString = templateArg.AsString();
+                    var dataObject = dataArg.AsObject();
+
+                    return RenderTemplate(templateString, dataObject);
+                }
+                catch (ArgumentException)
+                {
+                    // Re-throw argument exceptions
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception($"render_template: {ex.Message}");
+                }
+            }));
         }
 
         /// <summary>
@@ -207,6 +241,115 @@ namespace JintRunner.Runners
                     Console.WriteLine($"Error in {eventName} handler: {ex.Message}");
                 }
             }
+        }
+
+        /// <summary>
+        /// Renders a template using Fluid template engine
+        /// </summary>
+        /// <param name="templateString">The template string</param>
+        /// <param name="dataObject">The data object to use in the template</param>
+        /// <returns>Rendered template as string</returns>
+        private string RenderTemplate(string templateString, Jint.Native.Object.ObjectInstance dataObject)
+        {
+            try
+            {
+                // Parse the template
+                var parser = new FluidParser();
+                if (!parser.TryParse(templateString, out var template, out var error))
+                {
+                    throw new Exception($"Template parsing error: {error}");
+                }
+
+                // Convert Jint object to .NET dictionary for Fluid
+                var context = new TemplateContext();
+                ConvertJintObjectToFluidContext(dataObject, context);
+
+                // Render the template
+                var result = template.Render(context);
+
+                // Return the rendered string directly
+                return result;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Template rendering failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Converts a Jint ObjectInstance to Fluid template context
+        /// </summary>
+        /// <param name="jsObject">Jint object instance</param>
+        /// <param name="context">Fluid template context</param>
+        private void ConvertJintObjectToFluidContext(Jint.Native.Object.ObjectInstance jsObject, TemplateContext context)
+        {
+            foreach (var property in jsObject.GetOwnProperties())
+            {
+                var key = property.Key.AsString();
+                var value = property.Value.Value;
+
+                if (value != null)
+                {
+                    var convertedValue = ConvertJsValueToNetObject(value);
+                    context.SetValue(key, convertedValue);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Converts a JsValue to a .NET object for use with Fluid
+        /// </summary>
+        /// <param name="jsValue">The JsValue to convert</param>
+        /// <returns>Converted .NET object</returns>
+        private object? ConvertJsValueToNetObject(JsValue jsValue)
+        {
+            if (jsValue.IsNull() || jsValue.IsUndefined())
+            {
+                return null;
+            }
+
+            if (jsValue.IsString())
+            {
+                return jsValue.AsString();
+            }
+
+            if (jsValue.IsNumber())
+            {
+                return jsValue.AsNumber();
+            }
+
+            if (jsValue.IsBoolean())
+            {
+                return jsValue.AsBoolean();
+            }
+
+            if (jsValue.IsArray())
+            {
+                var array = jsValue.AsArray();
+                var list = new List<object?>();
+                for (uint i = 0; i < array.Length; i++)
+                {
+                    var item = array.Get(i.ToString());
+                    list.Add(ConvertJsValueToNetObject(item));
+                }
+                return list;
+            }
+
+            if (jsValue.IsObject())
+            {
+                var obj = jsValue.AsObject();
+                var dictionary = new Dictionary<string, object?>();
+                foreach (var property in obj.GetOwnProperties())
+                {
+                    var key = property.Key.AsString();
+                    var value = property.Value.Value;
+                    dictionary[key] = ConvertJsValueToNetObject(value);
+                }
+                return dictionary;
+            }
+
+            // Fallback to string representation
+            return jsValue.ToString();
         }
 
         /// <summary>

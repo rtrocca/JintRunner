@@ -705,7 +705,7 @@ async function testAdvancedEventMatching() {
             transitions: [{ event: "reset", target: "test_state" }]
         },
         {
-            id: "result2", 
+            id: "result2",
             onentry: (sm) => write("  → Prefix match result"),
             transitions: [{ event: "reset", target: "test_state" }]
         },
@@ -733,12 +733,12 @@ async function testAdvancedEventMatching() {
 
     for (let i = 0; i < testCases.length; i++) {
         const testCase = testCases[i];
-        
+
         write(`\n${i + 1}. ${testCase.description}:`);
         const result = await sm.send(testCase.event);
         const success = result.state === testCase.expected;
         write(`   Expected: ${testCase.expected}, Got: ${result.state} ${success ? '✓' : '✗'}`);
-        
+
         await sm.send("reset");
     }
 
