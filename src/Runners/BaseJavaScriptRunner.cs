@@ -7,6 +7,8 @@ using JintRunner.Core;
 using JintRunner.Models;
 using System.Collections;
 using Fluid;
+using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
 
 namespace JintRunner.Runners
 {
@@ -184,6 +186,31 @@ namespace JintRunner.Runners
                     throw new Exception($"render_template: {ex.Message}");
                 }
             }));
+
+            // Add parse_yaml function for parsing YAML strings to JavaScript objects
+            _jsEngine.SetValue("parse_yaml", new Func<JsValue, object>((yamlArg) =>
+            {
+                try
+                {
+                    // Type check: argument must be a string
+                    if (!yamlArg.IsString())
+                    {
+                        throw new ArgumentException("parse_yaml: Argument must be a string containing YAML");
+                    }
+
+                    var yamlString = yamlArg.AsString();
+                    return ParseYamlToObject(yamlString);
+                }
+                catch (ArgumentException)
+                {
+                    // Re-throw argument exceptions
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception($"parse_yaml: {ex.Message}");
+                }
+            }));
         }
 
         /// <summary>
@@ -274,6 +301,95 @@ namespace JintRunner.Runners
             {
                 throw new Exception($"Template rendering failed: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Parses a YAML string and converts it to a .NET object that preserves order
+        /// </summary>
+        /// <param name="yamlString">The YAML string to parse</param>
+        /// <returns>Parsed object that can be converted to JavaScript</returns>
+        private object ParseYamlToObject(string yamlString)
+        {
+            try
+            {
+                // Create a deserializer that preserves the order of properties and types
+                var deserializer = new DeserializerBuilder()
+                    .WithNamingConvention(UnderscoredNamingConvention.Instance)
+                    .IgnoreUnmatchedProperties()
+                    .Build();
+
+                // Parse the YAML string to an object
+                var yamlObject = deserializer.Deserialize<object>(yamlString);
+
+                // Convert to a format that preserves order and is JavaScript-friendly
+                return ConvertYamlObjectToOrderedObject(yamlObject) ?? new Dictionary<string, object>();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"YAML parsing failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Converts a YAML object to a .NET object that preserves order and is JavaScript-friendly
+        /// </summary>
+        /// <param name="yamlObject">The object from YAML deserialization</param>
+        /// <returns>Converted object that maintains order</returns>
+        private object? ConvertYamlObjectToOrderedObject(object? yamlObject)
+        {
+            if (yamlObject == null)
+            {
+                return null;
+            }
+
+            // Handle dictionaries (YAML objects) - preserve order
+            if (yamlObject is Dictionary<object, object> dict)
+            {
+                var orderedDict = new Dictionary<string, object?>();
+                foreach (var kvp in dict)
+                {
+                    var key = kvp.Key?.ToString() ?? "";
+                    var value = ConvertYamlObjectToOrderedObject(kvp.Value);
+                    orderedDict[key] = value;
+                }
+                return orderedDict;
+            }
+
+            // Handle lists (YAML arrays) - convert to regular arrays for better JS compatibility
+            if (yamlObject is List<object> list)
+            {
+                var convertedArray = new object?[list.Count];
+                for (int i = 0; i < list.Count; i++)
+                {
+                    convertedArray[i] = ConvertYamlObjectToOrderedObject(list[i]);
+                }
+                return convertedArray;
+            }
+
+            // Handle primitive types - preserve original types
+            if (yamlObject is string str)
+            {
+                return str;
+            }
+
+            if (yamlObject is int || yamlObject is long || yamlObject is double ||
+                yamlObject is float || yamlObject is decimal)
+            {
+                return yamlObject;
+            }
+
+            if (yamlObject is bool)
+            {
+                return yamlObject;
+            }
+
+            if (yamlObject is DateTime)
+            {
+                return yamlObject;
+            }
+
+            // For other types, convert to string as fallback
+            return yamlObject?.ToString();
         }
 
         /// <summary>
