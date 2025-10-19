@@ -9,6 +9,7 @@ using System.Collections;
 using Fluid;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
+using YamlDotNet.RepresentationModel;
 
 namespace JintRunner.Runners
 {
@@ -305,9 +306,10 @@ namespace JintRunner.Runners
 
         /// <summary>
         /// Parses a YAML string and converts it to a .NET object that preserves order
+        /// Always returns an array of documents (single element for single document, multiple elements for multi-document)
         /// </summary>
         /// <param name="yamlString">The YAML string to parse</param>
-        /// <returns>Parsed object that can be converted to JavaScript</returns>
+        /// <returns>Array of parsed document objects</returns>
         private object ParseYamlToObject(string yamlString)
         {
             try
@@ -318,11 +320,46 @@ namespace JintRunner.Runners
                     .IgnoreUnmatchedProperties()
                     .Build();
 
-                // Parse the YAML string to an object
-                var yamlObject = deserializer.Deserialize<object>(yamlString);
+                // Use YamlStream to handle both single and multi-document YAML
+                var yamlStream = new YamlStream();
+                using (var reader = new StringReader(yamlString))
+                {
+                    yamlStream.Load(reader);
+                }
 
-                // Convert to a format that preserves order and is JavaScript-friendly
-                return ConvertYamlObjectToOrderedObject(yamlObject) ?? new Dictionary<string, object>();
+                var documents = new List<object>();
+
+                // Process each document in the stream
+                foreach (var document in yamlStream.Documents)
+                {
+                    if (document.RootNode != null)
+                    {
+                        // Convert YamlNode back to string for deserializer
+                        using (var stringWriter = new StringWriter())
+                        {
+                            var yamlDocument = new YamlDocument(document.RootNode);
+                            var tempStream = new YamlStream(yamlDocument);
+                            tempStream.Save(stringWriter);
+                            var documentYaml = stringWriter.ToString().Trim();
+
+                            // Skip effectively empty documents
+                            if (!string.IsNullOrWhiteSpace(documentYaml) && documentYaml != "...")
+                            {
+                                var yamlObject = deserializer.Deserialize<object>(documentYaml);
+                                var convertedObject = ConvertYamlObjectToOrderedObject(yamlObject);
+                                if (convertedObject != null)
+                                {
+                                    documents.Add(convertedObject);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Always return an array - single element for single document, multiple for multi-document
+                return documents.Count == 0
+                    ? new object[] { new Dictionary<string, object>() }
+                    : documents.ToArray();
             }
             catch (Exception ex)
             {

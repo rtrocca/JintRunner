@@ -1,8 +1,8 @@
-// Test script for parse_yaml function
+// Test script for parse_yaml function (updated for always-array API)
 
-write("=== Testing parse_yaml function ===");
+write("=== Testing parse_yaml function (Always Returns Array) ===");
 
-// Test 1: Simple YAML object
+// Test 1: Simple YAML object - now returns array with 1 element
 const simpleYaml = `
 name: John Doe
 age: 30
@@ -14,7 +14,8 @@ try {
     const result1 = parse_yaml(simpleYaml);
     write("Test 1 - Simple YAML object:");
     write(`YAML: ${simpleYaml.trim()}`);
-    write(`Result: ${JSON.stringify(result1, null, 2)}`);
+    write(`Result: Array with ${result1.length} document(s)`);
+    write(`First document: ${JSON.stringify(result1[0], null, 2)}`);
     write("✓ Simple YAML test passed");
 } catch (error) {
     write(`✗ Simple YAML test failed: ${error.message}`);
@@ -47,8 +48,9 @@ application:
 try {
     const result2 = parse_yaml(complexYaml);
     write("Test 2 - Complex nested YAML:");
-    write(`Result:`);
-    write(JSON.stringify(result2, null, 2));
+    write(`Result: Array with ${result2.length} document(s)`);
+    write(`Application name: ${result2[0].application.name}`);
+    write(`Features count: ${result2[0].application.features.length}`);
     write("✓ Complex YAML test passed");
 } catch (error) {
     write(`✗ Complex YAML test failed: ${error.message}`);
@@ -74,8 +76,10 @@ multiline_string: |
 try {
     const result3 = parse_yaml(typedYaml);
     write("Test 3 - Different data types:");
-    write(`Result:`);
-    write(JSON.stringify(result3, null, 2));
+    write(`Result: Array with ${result3.length} document(s)`);
+    write(`String: ${result3[0].string_value}`);
+    write(`Integer: ${result3[0].integer_value}`);
+    write(`Boolean: ${result3[0].boolean_true}`);
     write("✓ Data types test passed");
 } catch (error) {
     write(`✗ Data types test failed: ${error.message}`);
@@ -99,8 +103,10 @@ const arrayYaml = `
 try {
     const result4 = parse_yaml(arrayYaml);
     write("Test 4 - YAML array at root:");
-    write(`Result:`);
-    write(JSON.stringify(result4, null, 2));
+    write(`Result: Array with ${result4.length} document(s)`);
+    write(`First document is array: ${Array.isArray(result4[0])}`);
+    write(`Array length: ${result4[0].length}`);
+    write(`First person: ${result4[0][0].name}`);
     write("✓ Array YAML test passed");
 } catch (error) {
     write(`✗ Array YAML test failed: ${error.message}`);
@@ -121,22 +127,51 @@ try {
     const result5 = parse_yaml(orderYaml);
     write("Test 5 - Order preservation:");
     write(`YAML keys in order: zebra, alpha, beta, gamma, omega`);
-    write(`Parsed object keys:`, Object.keys(result5));
+    const keys = Object.keys(result5[0]);
+    write(`Parsed object keys: ${keys.join(', ')}`);
 
     // Check if keys maintain their original order
-    const keys = Object.keys(result5);
     const expectedOrder = ['zebra', 'alpha', 'beta', 'gamma', 'omega'];
     const orderPreserved = JSON.stringify(keys) === JSON.stringify(expectedOrder);
 
     write(`Order preserved: ${orderPreserved ? 'YES ✓' : 'NO ✗'}`);
-    write(`Result: ${JSON.stringify(result5, null, 2)}`);
 } catch (error) {
     write(`✗ Order preservation test failed: ${error.message}`);
 }
 
 write("");
 
-// Test 6: Integration with render_template
+// Test 6: Multi-document YAML
+const multiDocYaml = `
+name: First Document
+version: 1.0
+
+---
+
+name: Second Document
+version: 2.0
+
+---
+
+name: Third Document
+version: 3.0
+`;
+
+try {
+    const result6 = parse_yaml(multiDocYaml);
+    write("Test 6 - Multi-document YAML:");
+    write(`Result: Array with ${result6.length} document(s)`);
+    for (let i = 0; i < result6.length; i++) {
+        write(`Document ${i + 1}: ${result6[i].name} v${result6[i].version}`);
+    }
+    write("✓ Multi-document test passed");
+} catch (error) {
+    write(`✗ Multi-document test failed: ${error.message}`);
+}
+
+write("");
+
+// Test 7: Integration with render_template
 const configYaml = `
 app:
   title: My Application
@@ -162,10 +197,11 @@ Features:
 
 try {
     const yamlData = parse_yaml(configYaml);
-    const rendered = render_template(template, yamlData);
+    // yamlData is now always an array, so use first element
+    const rendered = render_template(template, yamlData[0]);
 
-    write("Test 6 - Integration with render_template:");
-    write(`Rendered result:`);
+    write("Test 7 - Integration with render_template:");
+    write(`Template rendered successfully:`);
     write(rendered);
     write("✓ Integration test passed");
 } catch (error) {
@@ -173,10 +209,10 @@ try {
 }
 
 write("");
-write("=== All parse_yaml tests completed ===");
-
-// Additional note about order preservation
-write("");
-write("Note: This implementation preserves the order of keys as they appear");
-write("in the original YAML file, which is important for configuration files");
-write("and other structured data where order matters.");
+write("=== API Migration Notes ===");
+write("✓ parse_yaml() now ALWAYS returns an array");
+write("✓ Single documents: use result[0] to access the document");
+write("✓ Multi-documents: iterate through result array");
+write("✓ No more type checking needed: if (Array.isArray(result))");
+write("✓ Order preservation maintained within each document");
+write("✓ Integration with render_template: pass result[0] as data");
