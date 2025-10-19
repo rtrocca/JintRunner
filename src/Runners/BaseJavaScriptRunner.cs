@@ -6,6 +6,7 @@ using Jint.Runtime;
 using JintRunner.Core;
 using JintRunner.Models;
 using System.Collections;
+using System.Reflection;
 using Fluid;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
@@ -210,6 +211,44 @@ namespace JintRunner.Runners
                 catch (Exception ex)
                 {
                     throw new Exception($"parse_yaml: {ex.Message}");
+                }
+            }));
+
+            // Add get_version function to access assembly version information
+            _jsEngine.SetValue("get_version", new Func<object>(() =>
+            {
+                try
+                {
+                    var assembly = Assembly.GetExecutingAssembly();
+                    var assemblyName = assembly.GetName();
+
+                    // Get version attributes
+                    var assemblyVersionAttribute = assembly.GetCustomAttribute<AssemblyVersionAttribute>();
+                    var assemblyFileVersionAttribute = assembly.GetCustomAttribute<AssemblyFileVersionAttribute>();
+                    var assemblyInformationalVersionAttribute = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>();
+                    var assemblyProductAttribute = assembly.GetCustomAttribute<AssemblyProductAttribute>();
+                    var assemblyDescriptionAttribute = assembly.GetCustomAttribute<AssemblyDescriptionAttribute>();
+                    var assemblyCopyrightAttribute = assembly.GetCustomAttribute<AssemblyCopyrightAttribute>();
+                    var assemblyCompanyAttribute = assembly.GetCustomAttribute<AssemblyCompanyAttribute>();
+
+                    return new
+                    {
+                        version = assemblyName.Version?.ToString() ?? "Unknown",
+                        assembly_version = assemblyVersionAttribute?.Version ?? "Unknown",
+                        file_version = assemblyFileVersionAttribute?.Version ?? "Unknown",
+                        informational_version = assemblyInformationalVersionAttribute?.InformationalVersion ?? "Unknown",
+                        product = assemblyProductAttribute?.Product ?? "Unknown",
+                        description = assemblyDescriptionAttribute?.Description ?? "Unknown",
+                        copyright = assemblyCopyrightAttribute?.Copyright ?? "Unknown",
+                        company = assemblyCompanyAttribute?.Company ?? "Unknown",
+                        build_date = File.GetCreationTime(assembly.Location).ToString("yyyy-MM-dd HH:mm:ss"),
+                        runtime_version = Environment.Version.ToString(),
+                        framework_description = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription
+                    };
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception($"get_version: {ex.Message}");
                 }
             }));
         }

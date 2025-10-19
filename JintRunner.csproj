@@ -6,6 +6,19 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AssemblyName>jr</AssemblyName>
+    
+    <!-- Version Information -->
+    <Version>0.1.0</Version>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <FileVersion>0.1.0.0</FileVersion>
+    <InformationalVersion>0.1.0 - alpha</InformationalVersion>
+    
+    <!-- Assembly Metadata -->
+    <Product>JintRunner</Product>
+    <Description>A lightweight JavaScript execution engine for .NET</Description>
+    <Company>Your Company</Company>
+    <Authors>Your Name</Authors>
+    <Copyright>Copyright © 2025</Copyright>
   </PropertyGroup>
 
   <ItemGroup>
