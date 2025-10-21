@@ -70,7 +70,13 @@ namespace JintRunner.Runners
         /// </summary>
         protected virtual void InitializeJsEngine()
         {
-            _jsEngine = new Engine();
+            _jsEngine = new Engine(options =>
+            {
+                // options.LimitRecursion(100);
+                // options.MaxStatements(10000);
+                options.AllowClr(typeof(BaseJavaScriptRunner).Assembly)
+                .CatchClrExceptions();
+            });
 
             // Add write function
             _jsEngine.SetValue("write", new Action<object>((value) =>
@@ -249,6 +255,42 @@ namespace JintRunner.Runners
                 catch (Exception ex)
                 {
                     throw new Exception($"get_version: {ex.Message}");
+                }
+            }));
+
+            // Add ReadFile function for synchronous file reading
+            _jsEngine.SetValue("read_file", new Func<string, string>((filePath) =>
+            {
+                // Validate file path
+                if (string.IsNullOrWhiteSpace(filePath))
+                {
+                    throw new ArgumentException("File path cannot be empty or null");
+                }
+
+                try
+                {
+                    // Read file content synchronously
+                    return File.ReadAllText(filePath);
+                }
+                catch (FileNotFoundException)
+                {
+                    throw new FileNotFoundException($"File not found: {filePath}");
+                }
+                catch (DirectoryNotFoundException)
+                {
+                    throw new DirectoryNotFoundException($"Directory not found for path: {filePath}");
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    throw new UnauthorizedAccessException($"Access denied to file: {filePath}");
+                }
+                catch (IOException ex)
+                {
+                    throw new IOException($"IO error reading file {filePath}: {ex.Message}", ex);
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception($"Error reading file {filePath}: {ex.Message}", ex);
                 }
             }));
         }
